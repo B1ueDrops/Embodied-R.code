@@ -1,0 +1,17 @@
+[
+    {
+        "Question_id": "word_infer",
+        "video_id": "1ada7a0617.mp4",
+        "question_category": "object_rel_direction",
+        "question": "Please assume the role of an agent. The video represents your egocentric observations from the past to the present. Question: If I am standing by the computer tower and facing the heater, is the door to my left, right, or back?\nAn object is to my back if I would have to turn at least 135 degrees in order to face it.\n\nChoices: \nA. left\nB. right\nC. back\n",
+        "answer": "C"
+    },
+    {
+        "Question_id": "video_infer",
+        "video_id": "1ada7a0617.mp4",
+        "question_category": "object_rel_distance",
+        "question": "<video>Please assume the role of an agent. The video represents your egocentric observations from the past to the present. Question: Measuring from the closest point of each object, which of these objects (computer tower, chair, whiteboard, telephone) is the closest to the door?\n\nChoices: \nA. computer tower\nB. chair\nC. whiteboard\nD. telephone\n",
+        "answer": "C",
+        "videos": "DataPath/1ada7a0617.mp4"
+    }
+]
