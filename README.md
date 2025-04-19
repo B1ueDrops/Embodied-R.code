@@ -1,7 +1,7 @@
 # Embodied-R: Collaborative Framework for Activating Embodied Spatial Reasoning in Foundation Models via Reinforcement Learning
 
-`<a href='https://arxiv.org/pdf/2504.12680'><img src='https://img.shields.io/badge/arXiv-2504.12680-b31b1b.svg'>``</a>` &nbsp;
-`<a href='https://embodiedcity.github.io/Embodied-R/'><img src='https://img.shields.io/badge/Project-Website-0078D4.svg'>``</a>`
+<a href='https://arxiv.org/pdf/2504.12680'><img src='https://img.shields.io/badge/arXiv-2504.12680-b31b1b.svg'></a> &nbsp;
+<a href='https://embodiedcity.github.io/Embodied-R/'><img src='https://img.shields.io/badge/Project-Website-0078D4.svg'></a>
 
 This project provides the official code for Embodied-R, a collaborative framework designed to enhance embodied spatial reasoning tasks. Embodied-R leverages the perceptual capabilities of large-scale Vision-Language Models (VLMs) and achieves significant performance improvements by training only a small-scale Language Model (LM). By combining the strengths of these models, Embodied-R offers an efficient yet powerful solution for complex spatial reasoning tasks in embodied AI.
 
