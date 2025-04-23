@@ -372,7 +372,7 @@ Please respond with only one letter (A-H):"""
                 
                 # Call API
                 completion = client.chat.completions.create(
-                    model="qwen2.5-vl-3b-instruct",  # Use Ali Baidu platform model
+                    model="qwen2.5-3b-instruct",  # Use Ali Baidu platform model
                     messages=[
                         {'role': 'system', 'content': 'You are a professional question-answering assistant.'},
                         {'role': 'user', 'content': prompt}
