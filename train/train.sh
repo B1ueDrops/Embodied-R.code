@@ -4,7 +4,6 @@ NPROC_PER_NODE=8 \
 swift rlhf \
     --rlhf_type grpo \
     --model "Qwen/Qwen2.5-3B-Instruct" \
-    --model_type qwen2_5 \
     --train_type full \
     --torch_dtype bfloat16 \
     --system "${SYSTEM_PROMPT}" \
@@ -28,7 +27,6 @@ swift rlhf \
     --num_iterations 1 \
     --use_vllm true \
     --vllm_gpu_memory_utilization 0.4 \
-    --tensor_parallel_size 4 \
     --deepspeed zero3 \
     --num_infer_workers 8 \
     --max_length 6144 \
