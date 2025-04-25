@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Set default parameters
-MODEL="Qwen/Qwen2.5-3B-Instruct"
+MODEL="Qwen/Qwen2.5-VL-3B-Instruct"
 INPUT_FILE="results/inter/test_data.json"
 OUTPUT_FILE="results/infer/inference_result_$(date +%Y%m%d_%H%M%S).json"
 BATCH_SIZE=1

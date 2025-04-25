@@ -1,7 +1,7 @@
 # Embodied-R: Collaborative Framework for Activating Embodied Spatial Reasoning in Foundation Models via Reinforcement Learning
 
-<a href='https://arxiv.org/pdf/2504.12680'><img src='https://img.shields.io/badge/arXiv-2504.12680-b31b1b.svg'></a> &nbsp;
-<a href='https://embodiedcity.github.io/Embodied-R/'><img src='https://img.shields.io/badge/Project-Website-0078D4.svg'></a>
+`<a href='https://arxiv.org/pdf/2504.12680'><img src='https://img.shields.io/badge/arXiv-2504.12680-b31b1b.svg'>``</a>` &nbsp;
+`<a href='https://embodiedcity.github.io/Embodied-R/'><img src='https://img.shields.io/badge/Project-Website-0078D4.svg'>``</a>`
 
 <p align="center">
   <img src="assets/cover.gif" alt="Cover" width="65%" />
@@ -17,6 +17,7 @@ This project provides the official code for Embodied-R, a collaborative framewor
 ## News
 
 [2025/04/19] We release the basic training and inference code of Embodied-R.
+[2025/04/26] We add support for 5-GPU training and local API service, eliminating the need for commercial API calls during training.
 
 ## Installation
 
@@ -75,8 +76,10 @@ Embodied-R uses two main models: a vision module and a reasoning module.
    - This large vision-language model is responsible for processing video frames and extracting key semantic information
 2. **Reasoning Module Model**:
 
-   - Download [Qwen/Qwen2.5-3B-Instruct](https://huggingface.co/Qwen/Qwen2.5-3B-Instruct)
+   - Download [Qwen/Qwen2.5-VL-3B-Instruct](https://huggingface.co/Qwen/Qwen2.5-VL-3B-Instruct)
    - This small language model is trained with reinforcement learning, specifically for spatial reasoning tasks
+
+Note: Although the input here is textual, we recommend using the LM Decoder of the Qwen2.5-VL-3B-Instruct as the small-scale foundation model. This is because the pretraining of VL models involves multimodal/video-related content, which can benefit the LM Decoder. Fine-tuning on this basis will enable faster convergence.
 
 After downloading, place the model weights in an appropriate directory, or specify the model path when running scripts.
 
@@ -147,7 +150,7 @@ You can customize the vision model and reasoning model by modifying the `run_vid
 ```bash
 # Set model paths
 VISION_MODEL="Qwen/Qwen2.5-Vl-72B-Instruct"  # Vision model path
-REASONING_MODEL="Qwen/Qwen2.5-3B-Instruct"   # Reasoning model path
+REASONING_MODEL="Qwen/Qwen2.5-VL-3B-Instruct"   # Reasoning model path
 
 # Set parameters
 MAX_TOKENS=4096                # Max output tokens for reasoning module
@@ -162,7 +165,12 @@ Embodied-R uses Reinforcement Learning (RL) to train the reasoning module for hi
 
 ### Training Environment Requirements
 
-Recommended configuration: 8x NVIDIA A800 GPUs with 40GB memory each
+Recommended configurations:
+
+- Standard version: 8x NVIDIA A800 GPUs with 40GB memory each
+- Lightweight version: 5x NVIDIA A800 GPUs with 40GB memory each (new)
+  - GPUs 0-3: For GRPO training (4-card parallel)
+  - GPU 4: For local consistency verification model service
 
 ### Training Pipeline
 
@@ -182,20 +190,45 @@ Before training the model, you need to complete the following data preparation s
    ```
 3. Start training:
 
+   **Standard 8-GPU version** (uses commercial API for consistency reward):
+
    ```bash
-   bash train/train.sh
+   bash train/train_8GPUs.sh
    ```
 
-The training script uses the GRPO (Group Relative Policy Optimization) algorithm, a PPO variant designed specifically for large language models. You can customize the training process by modifying parameters in `train.sh`:
+   **New 5-GPU version** (uses local API service for consistency reward):
+
+   ```bash
+   bash train/train_5GPUs.sh
+   ```
+
+The training script uses the GRPO (Group Relative Policy Optimization) algorithm, a PPO variant designed specifically for large language models. You can customize the training process by modifying parameters in the training scripts:
 
 ```bash
-# Key parameters
---model "Qwen/Qwen2.5-3B-Instruct"  # Base model
+# Key parameters in both scripts
+--model "Qwen/Qwen2.5-VL-3B-Instruct"  # Base model
 --reward_weights 0.7 0.1 0.2         # Reward weights (accuracy, format, consistency)
 --reward_funcs choice_accuracy format consistency  # Reward functions
 --learning_rate 5e-7                 # Learning rate
 --num_train_epochs 2                 # Number of training epochs
 ```
+
+**Key differences between the two versions:**
+
+1. **8-GPU version** (`train_8GPUs.sh`):
+
+   - Uses all 8 GPUs for training
+   - Uses commercial API for consistency reward (`consistency_reward_API.py`)
+   - Higher throughput with more GPUs
+2. **5-GPU version** (`train_5GPUs.sh`):
+
+   - Uses 4 GPUs (0-3) for training
+   - Uses 1 GPU (4) for local consistency verification service
+   - Automatically starts the local consistency service
+   - Uses local API for consistency reward (`consistency_reward_local.py`)
+   - No need for commercial API keys
+
+For more details about the local consistency service, please refer to `train/README_local_consistency.md`.
 
 ### Reward Modeling
 
@@ -209,8 +242,12 @@ Embodied-R uses two main rewards to guide model learning:
 
    - Evaluates whether the model's reasoning process is logically consistent with its final answer
    - Works by inputting the reasoning process into a reference model to check if it produces the same answer
-   - Implemented in `train/consistency_reward.py`
-   - **Important**: Before using, you need to fill in API keys from the Bailian platform in the `train/consistency_reward.py` file:
+   - **Two options for reference model access**:
+
+     a) **Commercial API (Bailian platform)**:
+
+     - Implemented in `train/consistency_reward_API.py`
+     - Used in the 8-GPU version (`train_8GPUs.sh`)
 
      ```python
      # Enter your API keys here
@@ -220,6 +257,19 @@ Embodied-R uses two main rewards to guide model learning:
      ```
 
      Please visit the [Bailian platform](https://www.aliyun.com/product/bailian) to apply for API keys
+
+     b) **Local API Service (New)**:
+
+     - Implemented in `train/consistency_reward_local.py`
+     - Used in the 5-GPU version (`train_5GPUs.sh`)
+     - Runs a local model service on GPU 4
+
+     ```bash
+     # Start the local API service
+     bash train/start_consistency_service.sh
+     ```
+
+     This local service eliminates the need for commercial API calls during training
 
 Additionally, there is a format reward that ensures the model output follows the format `<think>reasoning process</think><answer>answer</answer>`.
 

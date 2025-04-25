@@ -23,8 +23,8 @@ def parse_args():
     # Model paths
     parser.add_argument("--vision_model_path", type=str, default="Qwen/Qwen2.5-Vl-72B-Instruct",
                         help="Path to vision model (default: Qwen/Qwen2.5-Vl-72B-Instruct)")
-    parser.add_argument("--reasoning_model_path", type=str, default="Qwen/Qwen2.5-3B-Instruct",
-                        help="Path to reasoning model (default: Qwen/Qwen2.5-3B-Instruct)")
+    parser.add_argument("--reasoning_model_path", type=str, default="Qwen/Qwen2.5-VL-3B-Instruct",
+                        help="Path to reasoning model (default: Qwen/Qwen2.5-VL-3B-Instruct)")
 
     # Reasoning module parameters
     parser.add_argument("--max_tokens", type=int, default=4096,
@@ -44,7 +44,7 @@ def interactive_mode(system: VideoChatSystem, video_path: Optional[str] = None,
                    max_tokens: int = 4096, temperature: float = 0.7,
                    vision_max_tokens: int = 6144, vision_temperature: float = 0.1,
                    vision_model_path: str = "Qwen/Qwen2.5-Vl-72B-Instruct",
-                   reasoning_model_path: str = "Qwen/Qwen2.5-3B-Instruct"):
+                   reasoning_model_path: str = "Qwen/Qwen2.5-VL-3B-Instruct"):
     """
     Interactive mode, modified to only require video at session start
 

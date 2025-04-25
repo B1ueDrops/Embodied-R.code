@@ -207,7 +207,7 @@ class VideoProcessor:
 class ReasoningProcessor:
     """Reasoning processing class, responsible for using language model for inference and answering"""
 
-    def __init__(self, reasoning_model_path: str = "Qwen/Qwen2.5-3B-Instruct",
+    def __init__(self, reasoning_model_path: str = "Qwen/Qwen2.5-VL-3B-Instruct",
                  reasoning_max_tokens: int = 4096, reasoning_temperature: float = 0.7):
         """
         Initialize reasoning processor
@@ -300,7 +300,7 @@ class VideoChatSystem:
     """Video chat system, integrating video processing and reasoning functionality"""
 
     def __init__(self, vision_model_path: str = "Qwen/Qwen2.5-Vl-72B-Instruct",
-                 reasoning_model_path: str = "Qwen/Qwen2.5-3B-Instruct"):
+                 reasoning_model_path: str = "Qwen/Qwen2.5-VL-3B-Instruct"):
         """Initialize video chat system
 
         Args:

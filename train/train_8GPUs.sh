@@ -3,7 +3,7 @@ SYSTEM_PROMPT="A conversation between User and Assistant. The user asks a questi
 NPROC_PER_NODE=8 \
 swift rlhf \
     --rlhf_type grpo \
-    --model "Qwen/Qwen2.5-3B-Instruct" \
+    --model "Qwen/Qwen2.5-VL-3B-Instruct" \
     --train_type full \
     --torch_dtype bfloat16 \
     --system "${SYSTEM_PROMPT}" \
@@ -20,13 +20,14 @@ swift rlhf \
     --target_modules all-linear \
     --reward_weights 0.7 0.1 0.2 \
     --reward_funcs choice_accuracy format consistency \
-    --external_plugins train/consistency_reward.py train/choice_accuracy_reward.py \
+    --external_plugins train/consistency_reward_API.py train/choice_accuracy_reward.py \
     --beta 0.001 \
     --temperature 1.0 \
     --num_generations 8 \
     --num_iterations 1 \
     --use_vllm true \
     --vllm_gpu_memory_utilization 0.4 \
+    --tensor_parallel_size 4 \
     --deepspeed zero3 \
     --num_infer_workers 8 \
     --max_length 6144 \

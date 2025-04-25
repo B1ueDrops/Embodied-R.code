@@ -2,7 +2,7 @@
 
 # Set model paths
 VISION_MODEL="Qwen/Qwen2.5-Vl-72B-Instruct"  # Vision model path
-REASONING_MODEL="Qwen/Qwen2.5-3B-Instruct"   # Reasoning model path
+REASONING_MODEL="Qwen/Qwen2.5-VL-3B-Instruct"   # Reasoning model path
 
 # Set parameters
 MAX_TOKENS=4096                # Max output tokens for reasoning module

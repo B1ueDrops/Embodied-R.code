@@ -70,7 +70,7 @@ def batch_inference(model_name, json_file, output_file, adapter_path=None, batch
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Batch inference for video question answering")
-    parser.add_argument("--model", type=str, default="Qwen/Qwen2.5-3B-Instruct", help="Model name")
+    parser.add_argument("--model", type=str, default="Qwen/Qwen2.5-VL-3B-Instruct", help="Model name")
     parser.add_argument("--input_file", type=str, default=None, help="Input JSON file")
     parser.add_argument("--output_file", type=str, default=None, help="Output JSON file")
     parser.add_argument("--batch_size", type=int, default=1, help="Batch size for inference")
