@@ -1,7 +1,7 @@
 # Embodied-R: Collaborative Framework for Activating Embodied Spatial Reasoning in Foundation Models via Reinforcement Learning
 
-`<a href='https://arxiv.org/pdf/2504.12680'><img src='https://img.shields.io/badge/arXiv-2504.12680-b31b1b.svg'>``</a>` &nbsp;
-`<a href='https://embodiedcity.github.io/Embodied-R/'><img src='https://img.shields.io/badge/Project-Website-0078D4.svg'>``</a>`
+<a href='https://arxiv.org/pdf/2504.12680'><img src='https://img.shields.io/badge/arXiv-2504.12680-b31b1b.svg'></a> &nbsp;
+<a href='https://embodiedcity.github.io/Embodied-R/'><img src='https://img.shields.io/badge/Project-Website-0078D4.svg'></a>
 
 <p align="center">
   <img src="assets/cover.gif" alt="Cover" width="65%" />
