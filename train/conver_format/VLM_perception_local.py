@@ -1,10 +1,7 @@
 import cv2  # We're using OpenCV to read video, to install !pip install opencv-python
 import base64
 import time
-from openai import OpenAI
-from openai import AzureOpenAI
 import os
-import requests
 import re
 import pandas as pd
 import numpy as np
@@ -13,6 +10,22 @@ import math
 from natsort import natsorted
 import copy
 import argparse  # Import argparse module
+import torch
+import json
+import datetime
+from pathlib import Path
+
+# Import ms-swift framework related modules
+from swift.llm import (
+    get_model_tokenizer,
+    InferRequest,
+    PtEngine,
+    RequestConfig,
+    get_template
+)
+from swift.llm.template import load_image, load_file
+from swift.tuners import Swift
+
 warnings.filterwarnings("ignore")
 
 def extract_qa(text):
@@ -174,73 +187,104 @@ def calculate_acc(file_path):
         accuracy_df.to_excel(writer, index=False, sheet_name='Accuracy Results')
 
 
-if __name__ == '__main__':
 
-    for data_path in ['dataset/complete/test_data.json', 'dataset/complete/train_data.json', 'dataset/complete/val_data.json']:
+class VideoProcessor:
+    """Video processing class, responsible for extracting video frames and using visual models for analysis"""
 
-        # Data reading
-        folder_path = r'dataset/complete/videos'
-        QA_df = pd.read_json(data_path)
-        QA_df['response'] = None
-        save_path = os.path.join('results/inter', os.path.basename(data_path))
+    def __init__(self, vision_model_path: str = "/data1/GRPO/model/Qwen2.5-Vl-7B-instruct"):
+        """
+        Initialize video processor
 
-        # To be deleted later
-        api_key = 'xxxxx'
-        client = OpenAI(
-            # If environment variables are not configured, please replace the following line with: api_key="sk-xxx",
-            # 'sk-bcfc3d84bc77478280a328fb399ab935'
-            api_key=api_key,
-            base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+        Args:
+            vision_model_path: Path to the visual model
+        """
+        print(f"Loading visual parsing model: {vision_model_path}")
+        self.model, self.tokenizer = get_model_tokenizer(
+            vision_model_path,
+            torch_dtype=torch.float16,
+            device_map="auto"
         )
+        self.template = get_template("qwen2_5_vl", self.tokenizer)
+        self.engine = PtEngine.from_model_template(self.model, self.template)
+        print("Visual parsing model loaded")
 
+    def extract_frames(self, video_path: str):
+        """
+        Args:
+            video_path: Video file path
 
-        for idx in range(QA_df.shape[0]):
-            print('idx: %d / %d '% (idx, QA_df.shape[0]))
-            video_name = QA_df['video_id'].iloc[idx]
-            qa = extract_qa(QA_df['question'].iloc[idx])
-            res = pd.DataFrame(columns=['description'])
+        Returns:
+            List of extracted frames and base64 encoded frames
+        """
+        # Open video file
+        cap = cv2.VideoCapture(video_path)
+        if not cap.isOpened():
+            raise ValueError(f"Failed to open video file: {video_path}")
 
-            # Read each frame of the video
-            video = cv2.VideoCapture(os.path.join(folder_path, video_name))
-            video_fps = video.get(cv2.CAP_PROP_FPS)
-            base64Frames = []
-            while video.isOpened():
-                success, frame = video.read()
-                if not success:
-                    break
-                _, buffer = cv2.imencode(".jpg", frame)
-                base64Frames.append(base64.b64encode(buffer).decode("utf-8"))
-            video.release()
+        frames = []
+        base64_frames = []
 
-            # Call VLM model to generate description, needs to be replaced
-            for frame_idx in range(len(base64Frames)):
-                try:
-                    if frame_idx > 0:
-                        prompt = "I provide you with the agent's first-person perspective. Two images represent the field of view before and after the action. Please output: \n\
+        # Read all frames
+        while cap.isOpened():
+            success, frame = cap.read()
+            if not success:
+                break
+            frames.append(frame)
+            _, buffer = cv2.imencode(".jpg", frame)
+            base64_frames.append(base64.b64encode(buffer).decode("utf-8"))
+
+        cap.release()
+        print(len(base64_frames), "frames read.")
+
+        return frames, base64_frames
+
+    def analyze_video(self, video_path: str, qa: str = None):
+        """
+        Analyze video content, consistent with VLM_perception.py
+
+        Args:
+            video_path: Video file path
+            qa: Question, used to guide the visual model to focus on relevant content
+
+        Returns:
+            DataFrame format results
+        """
+        # Extract video frames
+        _, base64_frames = self.extract_frames(video_path)
+        print(len(base64_frames), "frames extracted.")
+
+        # Create result DataFrame
+        res = pd.DataFrame(columns=['description'])
+
+        # Process each frame
+        for frame_idx in range(len(base64_frames)):
+            try:
+                if frame_idx > 0:
+                    prompt = "I provide you with the agent's first-person perspective. Two images represent the field of view before and after the action. Please output: \n\
                                     1. Based on the relative positional changes of objects in the field of view, determine the action performed (only output one of the following options without redundant content): Move forward, move backward, move left, move right, move upward, move downward, rotate left, rotate right, tilt downward, or tilt upward. \n\
                                     2. Analyze the post-action field of view compared to the pre-action view, identifying any newly captured spatial information. This includes objects that were previously invisible or unclear. Note that many objects of the same category may appear repetitive, such as buildings in a city, but they might differ in color or shape. When describing these, include features such as color and shape. Additionally, focus on the relationship between the agent and its surrounding environment. To do so, first imagine the three-dimensional scene around the agent. When describing relative positions, use terms such as 'to the left,' 'in the front-left,' or 'below' rather than simply referring to their positions in the field of view. \n\
                                     3. If the objects mentioned in the following question appear in the images, please make sure to describe them: '%s'. To reiterate, don't answer this question and don't give any option, you just need to observe whether the image contains the objects mentioned in the question/option. \n\
                                     Ensure responses are concise and clear." % qa
-                        content = [
-                            {
-                                "type": "text",
-                                "text": prompt
+                    content = [
+                        {
+                            "type": "text",
+                            "text": prompt
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{base64_frames[frame_idx-1]}",
                             },
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": f"data:image/jpeg;base64,{base64Frames[frame_idx-1]}",
-                                },
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{base64_frames[frame_idx]}",
                             },
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": f"data:image/jpeg;base64,{base64Frames[frame_idx]}",
-                                },
-                            }
-                        ]
-                    else:
-                        prompt = "I provide you with the first-person perspective of an intelligent agent. \
+                        }
+                    ]
+                else:
+                    prompt = "I provide you with the first-person perspective of an intelligent agent. \
                         Please output a description of the current observed scene. \
                         When describing the scene, focus on using features such as color and shape to characterize the objects. \
                         Additionally, emphasize the spatial relationship between the agent itself and the surrounding environment. \
@@ -249,37 +293,81 @@ if __name__ == '__main__':
                         More important, if the objects mentioned in the following question appear in the images, please make sure to describe them: '%s'. To reiterate, don't answer this question and don't give any option, you just need to observe whether the image contains the objects mentioned in the question/option. \n\
                         The response should be concise and clear." % qa
 
-                        content = [
-                            {
-                                "type": "text",
-                                "text": prompt
-                            },
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": f"data:image/jpeg;base64,{base64Frames[frame_idx]}",
-                                },
-                            }
-                        ]
-                    PROMPT_MESSAGES = [
+                    content = [
                         {
-                            "role": "user",
-                            "content": content
+                            "type": "text",
+                            "text": prompt
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{base64_frames[frame_idx]}",
+                            },
                         }
                     ]
-                    result = client.chat.completions.create(
-                        model='qwen',
-                        messages=PROMPT_MESSAGES
-                    )
-                    print(result.choices[0].message.content)
-                    res.loc[frame_idx, 'description'] = result.choices[0].message.content
 
-                except Exception as e:
-                    print(f"An error occurred: {e}")
-                    res['description'].loc[frame_idx] = None
-                    time.sleep(60)
+                # Build message
+                messages = [{"role": "user", "content": content}]
 
-            # Infer based on video text description content
+                # Create inference request
+                infer_request = InferRequest(messages=messages)
+
+                # Execute inference
+                response = self.engine.infer([infer_request])[0]
+
+                # Get result
+                frame_description = response.choices[0].message.content
+                res.loc[frame_idx, 'description'] = frame_description
+
+                # Print current frame processing result
+                print(frame_description)
+
+            except Exception as e:
+                print(f"An error occurred: {e}")
+                res['description'].loc[frame_idx] = None
+                time.sleep(10)  # Wait briefly when an error occurs
+
+        return res
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Process videos with local vision model.')
+    parser.add_argument('--data_paths', type=str, nargs='+', default=['dataset/complete/test_data.json', 'dataset/complete/train_data.json', 'dataset/complete/val_data.json'], help='JSON files containing data')
+    parser.add_argument('--folder_path', type=str, default='dataset/complete/videos', help='Folder containing videos')
+    parser.add_argument('--model_path', type=str, default='Qwen/Qwen2.5-Vl-72B-instruct', help='Path to the vision model')
+    parser.add_argument('--save_path', type=str, default='results/inter', help='Path to save results')
+    args = parser.parse_args()
+
+    # Initialize video processor
+    video_processor = VideoProcessor(args.model_path)
+
+    for data_path in args.data_paths:
+        # Data reading
+        folder_path = args.folder_path
+        QA_df = pd.read_json(data_path)
+        QA_df['response'] = None
+
+        # Use the save path from command line arguments
+        save_dir = getattr(args, 'save_path', 'results/inter')
+        save_path = os.path.join(save_dir, f'processed_{os.path.basename(data_path)}')
+
+        # Ensure the save directory exists
+        os.makedirs(save_dir, exist_ok=True)
+
+        for idx in range(QA_df.shape[0]):
+            print('idx: %d / %d '% (idx, QA_df.shape[0]))
+            video_name = QA_df['video_id'].iloc[idx]
+            qa = extract_qa(QA_df['question'].iloc[idx])
+
+            # Read video
+            video_path = os.path.join(folder_path, video_name)
+            if not os.path.exists(video_path):
+                print(f"Video file not found: {video_path}")
+                continue
+
+            # Analyze video
+            res = video_processor.analyze_video(video_path, qa)
+
+            # Based on video text description content for inference
             video_content = res
             video_content = split_points(video_content)
             video_content_str = derive_video_content_str(video_content)
@@ -290,7 +378,9 @@ if __name__ == '__main__':
             Video content: \n<\n%s\n>\n\
             Question: %s" % (video_content_str, original_qa)
 
-            # Need to add, LM model inference to get response
+            # Update question
             QA_df['question'].iloc[idx] = qa_w_content
 
+            # Save intermediate results
             QA_df.to_json(save_path, orient='records', indent=4)
+            print(f"Results saved to {save_path}")

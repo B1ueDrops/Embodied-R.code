@@ -9,9 +9,9 @@
 start_consistency_service() {
     echo "Starting Swift-based consistency verification model service..."
     # Give execution permission to the script
-    chmod +x train/start_consistency_service.sh 
+    chmod +x train/reward/start_consistency_service.sh 
     # Start the service
-    bash train/start_consistency_service.sh 
+    bash train/reward/start_consistency_service.sh 
     # Wait for the service to fully start
     sleep 15
 }
@@ -45,7 +45,7 @@ main() {
     --target_modules all-linear \
     --reward_weights 0.7 0.1 0.2 \
     --reward_funcs choice_accuracy format consistency \
-    --external_plugins train/consistency_reward_local.py train/choice_accuracy_reward.py \
+    --external_plugins train/reward/consistency_reward_local.py train/reward/choice_accuracy_reward.py \
     --beta 0.001 \
     --temperature 1.0 \
     --num_generations 4 \

@@ -22,7 +22,7 @@ def test_api_service(base_url="http://localhost:8000"):
             return False
     except requests.RequestException as e:
         print(f"Health check request failed: {str(e)}")
-        print("Please ensure the service is running, execute: bash train/start_consistency_service.sh")
+        print("Please ensure the service is running, execute: bash train/reward/start_consistency_service.sh")
         return False
     
     # Test inference endpoint

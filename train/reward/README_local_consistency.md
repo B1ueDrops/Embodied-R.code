@@ -8,7 +8,7 @@ This service uses the ms-swift framework to implement consistency verification f
 
 - `start_consistency_model_server.py`: The main program of the Swift-based consistency verification model API service, running on GPU 4
 - `start_consistency_service.sh`: The script to start the Swift-based consistency verification model service
-- `test_consistency_service.py`: The script to test the Swift-based consistency verification model service
+- `test_local_consistency_service.py`: The script to test the Swift-based consistency verification model service
 - `train_5GPUs.sh`: The training script that integrates the Swift-based consistency verification model service
 
 ## Installation and Configuration
@@ -42,15 +42,15 @@ The following models are supported:
 ### 1. Start the Service
 
 ```bash
-bash train/start_consistency_service.sh
+bash train/reward/start_consistency_service.sh
 ```
 
-After the service starts, it will run in the background, and the logs will be saved in `train/consistency_service.log`.
+After the service starts, it will run in the background, and the logs will be saved in `train/reward/consistency_service.log`.
 
 ### 2. Test the Service
 
 ```bash
-python train/test_consistency_service.py
+python train/reward/test_local_consistency_service.py
 ```
 
 If the service is running normally, it will display a message indicating that the test passed.
@@ -151,7 +151,7 @@ There are multiple methods to close the Swift-based consistency verification mod
 
    - Whether the service is running (using `ps aux | grep start_consistency_model_server.py`)
    - Whether the port is occupied (using `netstat -tuln | grep 8000`)
-   - Whether there are error messages in the log (view `train/consistency_service.log`)
+   - Whether there are error messages in the log (view `train/reward/consistency_service.log`)
 3. **If Qwen2.5-VL model loading fails**:
 
    - The system will automatically try to use the backup Qwen2.5-3B-Instruct model

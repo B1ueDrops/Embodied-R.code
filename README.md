@@ -1,7 +1,7 @@
 # Embodied-R: Collaborative Framework for Activating Embodied Spatial Reasoning in Foundation Models via Reinforcement Learning
 
-`<a href='https://arxiv.org/pdf/2504.12680'><img src='https://img.shields.io/badge/arXiv-2504.12680-b31b1b.svg'>``</a>` &nbsp;
-`<a href='https://embodiedcity.github.io/Embodied-R/'><img src='https://img.shields.io/badge/Project-Website-0078D4.svg'>``</a>`
+<a href='https://arxiv.org/pdf/2504.12680'><img src='https://img.shields.io/badge/arXiv-2504.12680-b31b1b.svg'></a> &nbsp;
+<a href='https://embodiedcity.github.io/Embodied-R/'><img src='https://img.shields.io/badge/Project-Website-0078D4.svg'></a>
 
 <p align="center">
   <img src="assets/cover.gif" alt="Cover" width="65%" />
@@ -37,8 +37,8 @@ The Embodied-R project is built on the ModelScope ms-swift open-source framework
 3. Clone this repository:
 
    ```bash
-   git clone https://github.com/your-username/Embodied-R.git
-   cd Embodied-R
+   git clone https://github.com/EmbodiedCity/Embodied-R.code.git
+   cd Embodied-R.code
    ```
 
 ## Setup
@@ -66,6 +66,12 @@ Embodied-R.code/
 └── ...
 ```
 
+Then, run the following command and the processed datasets will be stored in `dataset/complete`:
+
+```bash
+python dataset/data_preprocess.py
+```
+
 ### Model Weight Download
 
 Embodied-R uses two main models: a vision module and a reasoning module.
@@ -91,21 +97,29 @@ Embodied-R provides two inference methods: batch inference and interactive infer
 
 **Important: Complete Video Processing Pipeline**
 
-Before running batch inference, you need to first process videos using `train/VLM_perception.py` to generate text descriptions of the videos. This step converts video content into text representations for the reasoning model to use. The complete pipeline is as follows:
+Before running batch inference, you need to first process videos using `train/conver_format/VLM_perception.py` to generate text descriptions of the videos. This step converts video content into text representations for the reasoning model to use. The complete pipeline is as follows:
 
 1. Generate video descriptions using the vision model:
 
+   **Option 1: Using commercial API**
+
    ```bash
-   python train/VLM_perception.py
+   python train/conver_format/VLM_perception_API.py
+   ```
+
+   **Option 2: Using local large model**
+
+   ```bash
+   python train/conver_format/VLM_perception_local.py
    ```
 2. Run batch inference using the generated text descriptions:
 
    ```bash
    cd infer
    bash run_batch_inference.sh \
-     --model "path/to/reasoning/model" \
-     --input_file "path/to/video_descriptions.json" \
-     --output_file "path/to/output.json" \
+     --model "Qwen/Qwen2.5-VL-3B-Instruct" \
+     --input_file "results/inter/test_data.json" \
+     --output_file "results/infer/inference_result.json" \
      --batch_size 1 \
      --max_tokens 3096
    ```
@@ -149,7 +163,7 @@ You can customize the vision model and reasoning model by modifying the `run_vid
 
 ```bash
 # Set model paths
-VISION_MODEL="Qwen/Qwen2.5-Vl-72B-Instruct"  # Vision model path
+VISION_MODEL="Qwen/Qwen2.5-VL-72B-Instruct"  # Vision model path
 REASONING_MODEL="Qwen/Qwen2.5-VL-3B-Instruct"   # Reasoning model path
 
 # Set parameters
@@ -180,13 +194,21 @@ Before training the model, you need to complete the following data preparation s
 
 1. Generate video descriptions using the vision model:
 
+   **Option 1: Using commercial API**
+
    ```bash
-   python train/VLM_perception.py
+   python train/conver_format/VLM_perception_API.py
+   ```
+
+   **Option 2: Using local large model**
+
+   ```bash
+   python train/conver_format/VLM_perception_local.py
    ```
 2. Convert the generated text descriptions to GRPO training format:
 
    ```bash
-   python train/conver_GrpoFormat.py
+   python train/conver_format/convert_GrpoFormat.py
    ```
 3. Start training:
 
@@ -228,7 +250,7 @@ The training script uses the GRPO (Group Relative Policy Optimization) algorithm
    - Uses local API for consistency reward (`consistency_reward_local.py`)
    - No need for commercial API keys
 
-For more details about the local consistency service, please refer to `train/README_local_consistency.md`.
+For more details about the local consistency service, please refer to `train/reward/README_local_consistency.md`.
 
 ### Reward Modeling
 
@@ -237,7 +259,7 @@ Embodied-R uses two main rewards to guide model learning:
 1. **Choice Accuracy Reward**:
 
    - Evaluates whether the model's answer matches the correct answer
-   - Implemented in `train/choice_accuracy_reward.py`
+   - Implemented in `train/reward/choice_accuracy_reward.py`
 2. **Consistency Reward**:
 
    - Evaluates whether the model's reasoning process is logically consistent with its final answer
@@ -246,7 +268,7 @@ Embodied-R uses two main rewards to guide model learning:
 
      a) **Commercial API (Bailian platform)**:
 
-     - Implemented in `train/consistency_reward_API.py`
+     - Implemented in `train/reward/consistency_reward_API.py`
      - Used in the 8-GPU version (`train_8GPUs.sh`)
 
      ```python
@@ -260,13 +282,13 @@ Embodied-R uses two main rewards to guide model learning:
 
      b) **Local API Service (New)**:
 
-     - Implemented in `train/consistency_reward_local.py`
+     - Implemented in `train/reward/consistency_reward_local.py`
      - Used in the 5-GPU version (`train_5GPUs.sh`)
      - Runs a local model service on GPU 4
 
      ```bash
      # Start the local API service
-     bash train/start_consistency_service.sh
+     bash train/reward/start_consistency_service.sh
      ```
 
      This local service eliminates the need for commercial API calls during training
