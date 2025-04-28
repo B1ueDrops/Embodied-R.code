@@ -267,7 +267,7 @@ if __name__ == '__main__':
                         }
                     ]
                     result = client.chat.completions.create(
-                        model='qwen',
+                        model='qwen2.5-vl-72b-instruct',
                         messages=PROMPT_MESSAGES
                     )
                     print(result.choices[0].message.content)
