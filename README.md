@@ -17,6 +17,7 @@ This project provides the official code for Embodied-R, a collaborative framewor
 ## News
 
 [2025/04/19] We release the basic training and inference code of Embodied-R.
+
 [2025/04/26] We add support for 5-GPU training and local API service, eliminating the need for commercial API calls during training.
 
 ## Installation
@@ -72,6 +73,32 @@ Then, run the following command and the processed datasets will be stored in `da
 python dataset/data_preprocess.py
 ```
 
+After execution, a `videos` folder and three JSON files (`train_data.json`, `val_data.json`, and `test_data.json`) will be generated in the `dataset/complete` directory. The `videos` folder contains the utilized video files. The JSON files follow the format below:
+
+```json
+[
+    {
+        "Question_id": 1,
+        "video_id": "EmbodiedCity_20.mp4",
+        "question_category": "Counterfactual",
+        "question": "Question: Instead of taking a steady descent towards the balcony on the 13th floor, if you choose to hover around the cylindrical building instead, can you complete the task, and how is the alternative route?  \nChoices:  \nA. If I choose to hover around the building, I can complete the task because I avoid obstacles, and the hypothetical movement takes shorter time.  \nB. If I choose to hover around the building, I can complete the task because I acquire a better vantage point, but the alternative takes longer time.  \nC. If I choose to hover around the building, I cannot complete the task because the balcony is only accessible by descending further.  ",
+        "answer": "C",
+        "scene_name": "EmbodiedCity_20"
+    },
+    {
+        "Question_id": 2,
+        "video_id": "EmbodiedCity_38.mp4",
+        "question_category": "Counterfactual",
+        "question": "Question: Instead of moving forward, if you choose to fly directly to the right after descending alongside the building block, can you still reach the transformer box next to the gate?  \nChoices:  \nA. If I fly directly to the right, I cannot complete the task because I miss the path around the building, and the alternative takes longer.  \nB. If I fly directly to the right, I can complete the task by navigating a shortcut path through the open area, and the alternative takes shorter time.  \nC. If I fly directly to the right, I might not be able to complete the task because I move away from the electric gate on the side, and the hypothetical movement takes longer.  ",
+        "answer": "C",
+        "scene_name": "EmbodiedCity_38"
+    },
+    ...
+]
+```
+
+**If you need to use your own data, please organize it in the format described above.**
+
 ### Model Weight Download
 
 Embodied-R uses two main models: a vision module and a reasoning module.
@@ -85,7 +112,7 @@ Embodied-R uses two main models: a vision module and a reasoning module.
    - Download [Qwen/Qwen2.5-VL-3B-Instruct](https://huggingface.co/Qwen/Qwen2.5-VL-3B-Instruct)
    - This small language model is trained with reinforcement learning, specifically for spatial reasoning tasks
 
-Note: Although the input here is textual, we recommend using the LM Decoder of the Qwen2.5-VL-3B-Instruct as the small-scale foundation model. This is because the pretraining of VL models involves multimodal/video-related content, which can benefit the LM Decoder. Fine-tuning on this basis will enable faster convergence.
+Note: Although the input here is textual, we recommend using the LM Decoder (**Qwen2.5-3B**) in the Qwen2.5-VL-3B-Instruct as the small-scale foundation model. This is because the pretraining of VL models involves multimodal/video-related content, which can benefit the LM Decoder. Fine-tuning on this basis will enable faster convergence.
 
 After downloading, place the model weights in an appropriate directory, or specify the model path when running scripts.
 
