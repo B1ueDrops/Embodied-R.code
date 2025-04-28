@@ -101,17 +101,19 @@ Before running batch inference, you need to first process videos using `train/co
 
 1. Generate video descriptions using the vision model:
 
-   **Option 1: Using commercial API**
+   **Option 1: Using local large model**
+
+   ```bash
+   python train/conver_format/VLM_perception_local.py
+   ```
+   
+   **Option 2: Using commercial API**
 
    ```bash
    python train/conver_format/VLM_perception_API.py
    ```
 
-   **Option 2: Using local large model**
 
-   ```bash
-   python train/conver_format/VLM_perception_local.py
-   ```
 2. Run batch inference using the generated text descriptions:
 
    ```bash
@@ -194,17 +196,18 @@ Before training the model, you need to complete the following data preparation s
 
 1. Generate video descriptions using the vision model:
 
-   **Option 1: Using commercial API**
+   **Option 1: Using local large model**
+
+   ```bash
+   python train/conver_format/VLM_perception_local.py
+   ```
+
+   **Option 2: Using commercial API**
 
    ```bash
    python train/conver_format/VLM_perception_API.py
    ```
 
-   **Option 2: Using local large model**
-
-   ```bash
-   python train/conver_format/VLM_perception_local.py
-   ```
 2. Convert the generated text descriptions to GRPO training format:
 
    ```bash
