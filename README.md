@@ -345,11 +345,7 @@ Embodied-R uses two main rewards to guide model learning:
 
      Please visit the [Bailian platform](https://www.aliyun.com/product/bailian) to apply for API keys
      
-Training adopts a three-stage strategy with gradually adjusted reward weights:
-
-1. Stage 1 (first 2 epochs): Focus on format reward, weight ratio 7:3:0
-2. Stage 2 (epochs 3-4): Focus on accuracy reward, weight ratio 3:7:0
-3. Stage 3 (epochs 5-12): Focus on both accuracy and consistency, weight ratio 1:7:2
+We recommend using different reward weight ratios at different stages of training. Overall, higher weight should be assigned to the format reward in the early stages. In later stages, greater emphasis should be placed on the accuracy reward, while gradually incorporating the logical consistency reward. The earlier the logical consistency reward is introduced, the better the model's logical coherence can be maintained, though this may lead to slower training progress. Please adjust accordingly.
 
 ## Citation
 
