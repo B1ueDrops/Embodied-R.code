@@ -90,12 +90,12 @@ def question_fil(text):
     else:
         return text
 
-
 BOXED_PATTERN = r"\$\\boxed\{([A-H])\}\$"
 ANSWER_PATTERN = r"<answer>\s*([A-H])"
 SIMPLE_DOT_PATTERN = r"(?:^|[^A-Za-z])([A-H])\s*\."  # Pattern with dot, no restriction on content after the dot
 SIMPLE_PATTERN = r"(?:^|[^A-Za-z])([A-H])(?:$|[^A-Za-z])"  # Pattern without dot
 VALID_OPTIONS = set('ABCDEFGH')
+
 def extract_option_letter(answer):
     answer = answer.strip()
 
@@ -127,169 +127,86 @@ def extract_option_letter(answer):
     # If nothing is found, return the original text (will return 0 points in subsequent comparison)
     return answer.upper()
 
-def calculate_acc(file_path):
-    try:
-        df = pd.read_json(file_path)
-    except:
-        df = pd.read_json(file_path, lines=True)
+class VideoProcessorAPI:
+    def __init__(self, api_key: str, base_url: str):
+        """Initialize API client"""
+        self.client = OpenAI(api_key=api_key, base_url=base_url)
 
-    df['Extracted_Option'] = df['content'].apply(extract_option_letter)
-
-    # Remove rows where no Option was matched
-    df = df.dropna(subset=['Extracted_Option'])
-
-    # Calculate accuracy by category
-    accuracy_data = []
-
-    try:
-        for category, group in df.groupby('question_category'):
-            correct_count = (group['Extracted_Option'] == group['answer']).sum()
-            accuracy = correct_count / len(group)
-            accuracy_data.append({
-                'Category': category,
-                'Accuracy': accuracy,
-                'Num': len(group)
-            })
-    except:
-        pass
-
-    # Overall accuracy
-    total_correct = (df['Extracted_Option'] == df['answer']).sum()
-    total_accuracy = total_correct / len(df)
-    accuracy_data.append({
-        'Category': 'Total',
-        'Accuracy': total_accuracy
-    })
-
-    # Save results to Excel
-    accuracy_df = pd.DataFrame(accuracy_data)
-    print('Acc: \n', accuracy_df)
-
-    # Construct output file path, keep the same name as csv, with .xlsx extension
-    output_file_name = file_path.replace('.json', '.xlsx')
-    output_excel_path = os.path.join('results', 'acc_'+os.path.basename(output_file_name))
-
-    # Use ExcelWriter to save results
-    with pd.ExcelWriter(output_excel_path) as writer:
-        accuracy_df.to_excel(writer, index=False, sheet_name='Accuracy Results')
-
+    def analyze_video(self, video_path: str, qa: str = None) -> pd.DataFrame:
+        """Analyze video frames via OpenAI API"""
+        # Extract frames
+        video = cv2.VideoCapture(video_path)
+        base64Frames = []
+        while video.isOpened():
+            success, frame = video.read()
+            if not success:
+                break
+            _, buffer = cv2.imencode(".jpg", frame)
+            base64Frames.append(base64.b64encode(buffer).decode("utf-8"))
+        video.release()
+        res = pd.DataFrame(columns=['description'])
+        # Call API to generate descriptions
+        for frame_idx in range(len(base64Frames)):
+            try:
+                if frame_idx > 0:
+                    prompt = "I provide you with the agent's first-person perspective. Two images represent the field of view before and after the action. Please output: \n\
+1. Based on the relative positional changes of objects in the field of view, determine the action performed (only output one of the following options without redundant content): Move forward, move backward, move left, move right, move upward, move downward, rotate left, rotate right, tilt downward, or tilt upward. \n\
+2. Analyze the post-action field of view compared to the pre-action view, identifying any newly captured spatial information. This includes objects that were previously invisible or unclear. Note that many objects of the same category may appear repetitive, such as buildings in a city, but they might differ in color or shape. When describing these, include features such as color and shape. Additionally, focus on the relationship between the agent and its surrounding environment. To do so, first imagine the three-dimensional scene around the agent. When describing relative positions, use terms such as 'to the left,' 'in the front-left,' or 'below' rather than simply referring to their positions within the field of view. \n\
+3. If the objects mentioned in the following question appear in the images, please make sure to describe them: '%s'. To reiterate, don't answer this question and don't give any option, you just need to observe whether the image contains the objects mentioned in the question/option. \n\
+Ensure responses are concise and clear." % qa
+                    content = [
+                        {"type": "text", "text": prompt},
+                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64Frames[frame_idx-1]}"}},
+                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64Frames[frame_idx]}"}},
+                    ]
+                else:
+                    prompt = "I provide you with the first-person perspective of an intelligent agent. \
+Please output a description of the current observed scene. \
+When describing the scene, focus on using features such as color and shape to characterize the objects. \
+Additionally, emphasize the spatial relationship between the agent itself and the surrounding environment. \
+You should first visualize the three-dimensional space around the agent. \
+When describing relative positions, use terms such as 'to the left,' 'ahead-left,' or 'below,' rather than merely stating their positions within the field of view. \
+More important, if the objects mentioned in the following question appear in the images, please make sure to describe them: '%s'. To reiterate, don't answer this question and don't give any option, you just need to observe whether the image contains the objects mentioned in the question/option. \
+The response should be concise and clear." % qa
+                    content = [
+                        {"type": "text", "text": prompt},
+                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64Frames[frame_idx]}"}},
+                    ]
+                PROMPT_MESSAGES = [{"role": "user", "content": content}]
+                result = self.client.chat.completions.create(model='qwen2.5-vl-72b-instruct', messages=PROMPT_MESSAGES)
+                res.loc[frame_idx, 'description'] = result.choices[0].message.content
+            except Exception as e:
+                print(f"An error occurred: {e}")
+                res.loc[frame_idx, 'description'] = None
+                time.sleep(60)
+        return res
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Process videos with OpenAI API')
+    parser.add_argument('--data_paths', type=str, nargs='+', default=['dataset/complete/test_data.json', 'dataset/complete/train_data.json', 'dataset/complete/val_data.json'], help='JSON files containing data')
+    parser.add_argument('--folder_path', type=str, default='dataset/complete/videos', help='Folder containing videos')
+    parser.add_argument('--api_key', type=str, default=None, help='OpenAI API key')
+    parser.add_argument('--base_url', type=str, default='https://dashscope.aliyuncs.com/compatible-mode/v1', help='API base URL')
+    parser.add_argument('--save_path', type=str, default='results/inter', help='Path to save results')
+    args = parser.parse_args()
 
-    for data_path in ['dataset/complete/test_data.json', 'dataset/complete/train_data.json', 'dataset/complete/val_data.json']:
+    api_key = args.api_key or os.getenv('OPENAI_API_KEY')
+    processor = VideoProcessorAPI(api_key=api_key, base_url=args.base_url)
 
-        # Data reading
-        folder_path = r'dataset/complete/videos'
+    for data_path in args.data_paths:
         QA_df = pd.read_json(data_path)
         QA_df['response'] = None
-        save_path = os.path.join('results/inter', os.path.basename(data_path))
-
-        # To be deleted later
-        api_key = 'xxxxx'
-        client = OpenAI(
-            # If environment variables are not configured, please replace the following line with: api_key="sk-xxx",
-            api_key=api_key,
-            base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-        )
-
-
+        os.makedirs(args.save_path, exist_ok=True)
         for idx in range(QA_df.shape[0]):
-            print('idx: %d / %d '% (idx, QA_df.shape[0]))
-            video_name = QA_df['video_id'].iloc[idx]
             qa = extract_qa(QA_df['question'].iloc[idx])
-            res = pd.DataFrame(columns=['description'])
-
-            # Read each frame of the video
-            video = cv2.VideoCapture(os.path.join(folder_path, video_name))
-            video_fps = video.get(cv2.CAP_PROP_FPS)
-            base64Frames = []
-            while video.isOpened():
-                success, frame = video.read()
-                if not success:
-                    break
-                _, buffer = cv2.imencode(".jpg", frame)
-                base64Frames.append(base64.b64encode(buffer).decode("utf-8"))
-            video.release()
-
-            # Call VLM model to generate description, needs to be replaced
-            for frame_idx in range(len(base64Frames)):
-                try:
-                    if frame_idx > 0:
-                        prompt = "I provide you with the agent's first-person perspective. Two images represent the field of view before and after the action. Please output: \n\
-                                    1. Based on the relative positional changes of objects in the field of view, determine the action performed (only output one of the following options without redundant content): Move forward, move backward, move left, move right, move upward, move downward, rotate left, rotate right, tilt downward, or tilt upward. \n\
-                                    2. Analyze the post-action field of view compared to the pre-action view, identifying any newly captured spatial information. This includes objects that were previously invisible or unclear. Note that many objects of the same category may appear repetitive, such as buildings in a city, but they might differ in color or shape. When describing these, include features such as color and shape. Additionally, focus on the relationship between the agent and its surrounding environment. To do so, first imagine the three-dimensional scene around the agent. When describing relative positions, use terms such as 'to the left,' 'in the front-left,' or 'below' rather than simply referring to their positions in the field of view. \n\
-                                    3. If the objects mentioned in the following question appear in the images, please make sure to describe them: '%s'. To reiterate, don't answer this question and don't give any option, you just need to observe whether the image contains the objects mentioned in the question/option. \n\
-                                    Ensure responses are concise and clear." % qa
-                        content = [
-                            {
-                                "type": "text",
-                                "text": prompt
-                            },
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": f"data:image/jpeg;base64,{base64Frames[frame_idx-1]}",
-                                },
-                            },
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": f"data:image/jpeg;base64,{base64Frames[frame_idx]}",
-                                },
-                            }
-                        ]
-                    else:
-                        prompt = "I provide you with the first-person perspective of an intelligent agent. \
-                        Please output a description of the current observed scene. \
-                        When describing the scene, focus on using features such as color and shape to characterize the objects. \
-                        Additionally, emphasize the spatial relationship between the agent itself and the surrounding environment. \
-                        You should first visualize the three-dimensional space around the agent. \
-                        When describing relative positions, use terms such as 'to the left,' 'ahead-left,' or 'below,' rather than merely stating their positions within the field of view. \
-                        More important, if the objects mentioned in the following question appear in the images, please make sure to describe them: '%s'. To reiterate, don't answer this question and don't give any option, you just need to observe whether the image contains the objects mentioned in the question/option. \n\
-                        The response should be concise and clear." % qa
-
-                        content = [
-                            {
-                                "type": "text",
-                                "text": prompt
-                            },
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": f"data:image/jpeg;base64,{base64Frames[frame_idx]}",
-                                },
-                            }
-                        ]
-                    PROMPT_MESSAGES = [
-                        {
-                            "role": "user",
-                            "content": content
-                        }
-                    ]
-                    result = client.chat.completions.create(
-                        model='qwen',
-                        messages=PROMPT_MESSAGES
-                    )
-                    print(result.choices[0].message.content)
-                    res.loc[frame_idx, 'description'] = result.choices[0].message.content
-
-                except Exception as e:
-                    print(f"An error occurred: {e}")
-                    res['description'].loc[frame_idx] = None
-                    time.sleep(60)
-
-            # Infer based on video text description content
-            video_content = res
-            video_content = split_points(video_content)
+            video_path = os.path.join(args.folder_path, QA_df['video_id'].iloc[idx])
+            if not os.path.exists(video_path):
+                print(f"Video file not found: {video_path}")
+                continue
+            res = processor.analyze_video(video_path, qa)
+            video_content = split_points(res)
             video_content_str = derive_video_content_str(video_content)
-
             original_qa = question_fil(qa)
-
-            qa_w_content = "Please assume the role of an agent. The video represents your egocentric observations from the past to the present. \
-            Video content: \n<\n%s\n>\n\
-            Question: %s" % (video_content_str, original_qa)
-
-            # Need to add, LM model inference to get response
+            qa_w_content = "Please assume the role of an agent. The video represents your egocentric observations from the past to the present.\nVideo content: \n<\n%s\n>\nQuestion: %s" % (video_content_str, original_qa)
             QA_df['question'].iloc[idx] = qa_w_content
-
-            QA_df.to_json(save_path, orient='records', indent=4)
+        QA_df.to_json(os.path.join(args.save_path, f'processed_{os.path.basename(data_path)}'), orient='records', indent=4)

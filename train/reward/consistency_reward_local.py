@@ -192,19 +192,20 @@ class ConsistencyReward(ORM):
 
         try:
             # Build prompt - simplify prompt to reduce complexity
-            prompt = f"""This is a single-choice question. Please choose the most appropriate option (a letter from A-H) based on the following question and thinking process.
+            prompt = f"""This is a multiple-choice question. Based on the following question and thinking process, select the most appropriate option (one letter from A-H).
 
-You only need to answer with one letter, no explanation or other content.
+Please answer with only one letter, without any explanation or additional content.
 
 Question: {question}
+
 Thinking process: {think_content}
 
-Please answer with only one letter (A-H):"""
+Please respond with only one letter (A-H):"""
 
             # Call API service
             model_answer = self.api_client.generate_completion(
                 prompt=prompt,
-                system_prompt="You are a professional question answering assistant.",
+                system_prompt="You are a professional question-answering assistant.",
                 max_tokens=10,
                 temperature=0.1
             )

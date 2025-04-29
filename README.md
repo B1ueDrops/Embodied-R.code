@@ -85,7 +85,7 @@ Embodied-R uses two main models: a vision module and a reasoning module.
    - Download [Qwen/Qwen2.5-VL-3B-Instruct](https://huggingface.co/Qwen/Qwen2.5-VL-3B-Instruct)
    - This small language model is trained with reinforcement learning, specifically for spatial reasoning tasks
 
-Note: Although the input here is textual, we recommend using the LM Decoder of the Qwen2.5-VL-3B-Instruct as the small-scale foundation model. This is because the pretraining of VL models involves multimodal/video-related content, which can benefit the LM Decoder. Fine-tuning on this basis will enable faster convergence.
+> **Note**:Although the input here is textual, we recommend using the LM Decoder of the Qwen2.5-VL-3B-Instruct as the small-scale foundation model. This is because the pretraining of VL models involves multimodal/video-related content, which can benefit the LM Decoder. Fine-tuning on this basis will enable faster convergence.
 
 After downloading, place the model weights in an appropriate directory, or specify the model path when running scripts.
 
@@ -97,21 +97,45 @@ Embodied-R provides two inference methods: batch inference and interactive infer
 
 **Important: Complete Video Processing Pipeline**
 
-Before running batch inference, you need to first process videos using `train/conver_format/VLM_perception.py` to generate text descriptions of the videos. This step converts video content into text representations for the reasoning model to use. The complete pipeline is as follows:
+Before running batch inference, you need to first process videos using `train/conver_format/VLM_perception_local.py` or `train/conver_format/VLM_perception_API.py` to generate text descriptions of the videos. This step converts video content into text representations for the reasoning model to use. The complete pipeline is as follows:
 
-1. Generate video descriptions using the vision model:
-
-   **Option 1: Using commercial API**
+ **Option 1: Using local large model**
 
    ```bash
-   python train/conver_format/VLM_perception_API.py
+   python train/conver_format/VLM_perception_local.py --data_paths [JSON_FILES] --folder_path [VIDEOS_FOLDER] --model_path [VISION_MODEL_PATH] --save_path [RESULTS_PATH]
    ```
 
-   **Option 2: Using local large model**
+   Parameters:
+   - `--data_paths`: JSON files containing data, can specify multiple files, default: `['dataset/complete/test_data.json', 'dataset/complete/train_data.json', 'dataset/complete/val_data.json']`
+   - `--folder_path`: Folder containing video files, default: `dataset/complete/videos`
+   - `--model_path`: Path to the vision model, default: `Qwen/Qwen2.5-Vl-72B-instruct`
+   - `--save_path`: Path to save results, default: `results/inter`
+
+   Example (using custom data):
+   ```bash
+   python train/conver_format/VLM_perception_local.py --data_paths my_data.json --folder_path my_videos_path --model_path Qwen/Qwen2.5-Vl-72B-instruct --save_path my_results_path
+   ```
+
+   **Option 2: Using commercial API**
 
    ```bash
-   python train/conver_format/VLM_perception_local.py
+   python train/conver_format/VLM_perception_API.py --data_paths [JSON_FILES] --folder_path [VIDEOS_FOLDER] --api_key [API_KEY] --base_url [API_BASE_URL] --save_path [RESULTS_PATH]
    ```
+
+   Parameters:
+   - `--data_paths`: JSON files containing data, can specify multiple files, default: `['dataset/complete/test_data.json', 'dataset/complete/train_data.json', 'dataset/complete/val_data.json']`
+   - `--folder_path`: Folder containing video files, default: `dataset/complete/videos`
+   - `--api_key`: OpenAI API key, default: None (if not provided, will try to get from environment variable `OPENAI_API_KEY`)
+   - `--base_url`: API base URL, default: `https://dashscope.aliyuncs.com/compatible-mode/v1`
+   - `--save_path`: Path to save results, default: `results/inter`
+
+   Example (using custom data):
+   ```bash
+   python train/conver_format/VLM_perception_API.py --data_paths my_data.json --folder_path my_videos_path --api_key your_api_key --save_path my_results_path
+   ```
+
+   > **Note**: Qwen officially provides API services for their open-source models, which are identical to the locally deployed small-scale foundation models. If local computing resources are limited, API can be used for training-free reference models.
+
 2. Run batch inference using the generated text descriptions:
 
    ```bash
@@ -194,16 +218,16 @@ Before training the model, you need to complete the following data preparation s
 
 1. Generate video descriptions using the vision model:
 
-   **Option 1: Using commercial API**
-
-   ```bash
-   python train/conver_format/VLM_perception_API.py
-   ```
-
-   **Option 2: Using local large model**
+   **Option 1: Using local large model**
 
    ```bash
    python train/conver_format/VLM_perception_local.py
+   ```
+
+   **Option 2: Using commercial API**
+
+   ```bash
+   python train/conver_format/VLM_perception_API.py
    ```
 2. Convert the generated text descriptions to GRPO training format:
 
@@ -212,16 +236,16 @@ Before training the model, you need to complete the following data preparation s
    ```
 3. Start training:
 
-   **Standard 8-GPU version** (uses commercial API for consistency reward):
-
-   ```bash
-   bash train/train_8GPUs.sh
-   ```
-
    **New 5-GPU version** (uses local API service for consistency reward):
 
    ```bash
    bash train/train_5GPUs.sh
+   ```
+
+   **Standard 8-GPU version** (uses commercial API for consistency reward):
+
+   ```bash
+   bash train/train_8GPUs.sh
    ```
 
 The training script uses the GRPO (Group Relative Policy Optimization) algorithm, a PPO variant designed specifically for large language models. You can customize the training process by modifying parameters in the training scripts:
@@ -237,18 +261,19 @@ The training script uses the GRPO (Group Relative Policy Optimization) algorithm
 
 **Key differences between the two versions:**
 
-1. **8-GPU version** (`train_8GPUs.sh`):
-
-   - Uses all 8 GPUs for training
-   - Uses commercial API for consistency reward (`consistency_reward_API.py`)
-   - Higher throughput with more GPUs
-2. **5-GPU version** (`train_5GPUs.sh`):
+1. **5-GPU version** (`train_5GPUs.sh`):
 
    - Uses 4 GPUs (0-3) for training
    - Uses 1 GPU (4) for local consistency verification service
    - Automatically starts the local consistency service
    - Uses local API for consistency reward (`consistency_reward_local.py`)
    - No need for commercial API keys
+
+2. **8-GPU version** (`train_8GPUs.sh`):
+
+   - Uses all 8 GPUs for training
+   - Uses commercial API for consistency reward (`consistency_reward_API.py`)
+   - Higher throughput with more GPUs
 
 For more details about the local consistency service, please refer to `train/reward/README_local_consistency.md`.
 
@@ -260,13 +285,26 @@ Embodied-R uses two main rewards to guide model learning:
 
    - Evaluates whether the model's answer matches the correct answer
    - Implemented in `train/reward/choice_accuracy_reward.py`
-2. **Consistency Reward**:
+2. **Format Reward**:
+   - Ensures the model output follows the format `<think>reasoning process</think><answer>answer</answer>`
+3. **Consistency Reward**:
 
    - Evaluates whether the model's reasoning process is logically consistent with its final answer
    - Works by inputting the reasoning process into a reference model to check if it produces the same answer
    - **Two options for reference model access**:
 
-     a) **Commercial API (Bailian platform)**:
+     a) **Local API Service**:
+
+     - Implemented in `train/reward/consistency_reward_local.py`
+     - Used in the 5-GPU version (`train_5GPUs.sh`)
+     - Runs a local model service on GPU 4
+
+     ```bash
+     # Start the local API service
+     bash train/reward/start_consistency_service.sh
+     ```
+
+     b) **Commercial API (Bailian platform)**:
 
      - Implemented in `train/reward/consistency_reward_API.py`
      - Used in the 8-GPU version (`train_8GPUs.sh`)
@@ -279,22 +317,7 @@ Embodied-R uses two main rewards to guide model learning:
      ```
 
      Please visit the [Bailian platform](https://www.aliyun.com/product/bailian) to apply for API keys
-
-     b) **Local API Service (New)**:
-
-     - Implemented in `train/reward/consistency_reward_local.py`
-     - Used in the 5-GPU version (`train_5GPUs.sh`)
-     - Runs a local model service on GPU 4
-
-     ```bash
-     # Start the local API service
-     bash train/reward/start_consistency_service.sh
-     ```
-
-     This local service eliminates the need for commercial API calls during training
-
-Additionally, there is a format reward that ensures the model output follows the format `<think>reasoning process</think><answer>answer</answer>`.
-
+     
 Training adopts a three-stage strategy with gradually adjusted reward weights:
 
 1. Stage 1 (first 2 epochs): Focus on format reward, weight ratio 7:3:0
