@@ -14,6 +14,7 @@ import torch
 import json
 import datetime
 from pathlib import Path
+from utils import *
 
 # Import ms-swift framework related modules
 from swift.llm import (
@@ -340,6 +341,9 @@ if __name__ == '__main__':
     # Initialize video processor
     video_processor = VideoProcessor(args.model_path)
 
+    # Key-frame folder
+    video_keyframe_folder = os.path.join(args.save_path, 'video_keyframe')
+
     for data_path in args.data_paths:
         # Data reading
         folder_path = args.folder_path
@@ -358,11 +362,14 @@ if __name__ == '__main__':
             video_name = QA_df['video_id'].iloc[idx]
             qa = extract_qa(QA_df['question'].iloc[idx])
 
-            # Read video
-            video_path = os.path.join(folder_path, video_name)
+            # Read video. If key-frames do not exist, extract and save
+            video_path = os.path.join(video_keyframe_folder, video_name)
             if not os.path.exists(video_path):
-                print(f"Video file not found: {video_path}")
-                continue
+                original_video_path = os.path.join(folder_path, video_name)
+                if not os.path.exists(original_video_path):
+                    print(f"Video file not found: {video_path}")
+                    continue
+                extract_keyframes_from_video(original_video_path, video_keyframe_folder)
 
             # Analyze video
             res = video_processor.analyze_video(video_path, qa)

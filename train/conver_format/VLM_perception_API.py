@@ -13,6 +13,7 @@ import math
 from natsort import natsorted
 import copy
 import argparse  # Import argparse module
+from utils import *
 warnings.filterwarnings("ignore")
 
 def extract_qa(text):
@@ -192,6 +193,7 @@ if __name__ == '__main__':
 
     api_key = args.api_key or os.getenv('OPENAI_API_KEY')
     processor = VideoProcessorAPI(api_key=api_key, base_url=args.base_url)
+    video_keyframe_folder = os.path.join(args.save_path, 'video_keyframe')
 
     for data_path in args.data_paths:
         QA_df = pd.read_json(data_path)
@@ -199,10 +201,16 @@ if __name__ == '__main__':
         os.makedirs(args.save_path, exist_ok=True)
         for idx in range(QA_df.shape[0]):
             qa = extract_qa(QA_df['question'].iloc[idx])
-            video_path = os.path.join(args.folder_path, QA_df['video_id'].iloc[idx])
+            video_path = os.path.join(video_keyframe_folder, QA_df['video_id'].iloc[idx])
+
+            # If key-frames do not exist, extract and save
             if not os.path.exists(video_path):
-                print(f"Video file not found: {video_path}")
-                continue
+                original_video_path = os.path.join(args.folder_path, QA_df['video_id'].iloc[idx])
+                if not os.path.exists(original_video_path):
+                    print(f"Video file not found: {video_path}")
+                    continue
+                extract_keyframes_from_video(original_video_path, video_keyframe_folder)
+
             res = processor.analyze_video(video_path, qa)
             video_content = split_points(res)
             video_content_str = derive_video_content_str(video_content)
