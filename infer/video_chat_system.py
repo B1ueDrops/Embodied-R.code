@@ -21,6 +21,9 @@ import tempfile
 import warnings
 from pathlib import Path
 
+# Import keyframe extraction functions from utils.py
+from train.conver_format.utils import extract_keyframes_from_video, downsample_video, extract_keyframes, constrained_sampling, calculate_overlap_ratio
+
 # Set environment variable, set maximum model length to 16K
 os.environ['MAX_MODEL_LEN'] = '16384'
 
@@ -69,32 +72,59 @@ class VideoProcessor:
 
         print("Visual parsing model loaded")
 
-    def extract_frames(self, video_path: str) -> List[np.ndarray]:
+    def extract_frames(self, video_path: str, use_keyframes: bool = True, max_frame: int = 32, min_frame: int = 4) -> List[np.ndarray]:
         """
-        Extract all frames from video, consistent with video_description_each_question_8tasks.py main function
+        Extract frames from video, using keyframe extraction if specified
 
         Args:
             video_path: Path to video file
+            use_keyframes: Whether to use keyframe extraction
+            max_frame: Maximum number of keyframes
+            min_frame: Minimum number of keyframes
 
         Returns:
             List of extracted frames
         """
-        # Open video file
-        cap = cv2.VideoCapture(video_path)
-        if not cap.isOpened():
-            raise ValueError(f"Failed to open video file: {video_path}")
+        if not use_keyframes:
+            # Original method: extract all frames
+            cap = cv2.VideoCapture(video_path)
+            if not cap.isOpened():
+                raise ValueError(f"Failed to open video file: {video_path}")
 
-        frames = []
-        # Read all frames, consistent with video_description_each_question_8tasks.py main function
-        while cap.isOpened():
-            success, frame = cap.read()
-            if not success:
-                break
-            frames.append(frame)
+            frames = []
+            while cap.isOpened():
+                success, frame = cap.read()
+                if not success:
+                    break
+                frames.append(frame)
 
-        cap.release()
-        print(len(frames), "frames read.")
-        return frames
+            cap.release()
+            print(len(frames), "frames read.")
+            return frames
+        else:
+            # New method: extract keyframes
+            # Downsampling the video to 1fps
+            frames = downsample_video(video_path)
+            if not frames or len(frames) == 0:
+                raise ValueError(f"Video {video_path} downsampling failed")
+            frame_count = len(frames)
+
+            # Obtain the idx of keyframes
+            keyframe_indices = extract_keyframes(frames, 0.5)
+            print("关键帧索引：", keyframe_indices)
+            print("关键帧数量：", len(keyframe_indices))
+
+            # Ensure the keyframe number is in [min_frame, max_frame]
+            if len(keyframe_indices) < min_frame:
+                keyframe_indices = [i for i in range(frame_count)]
+                keyframe_indices = constrained_sampling(keyframe_indices, min_frame)
+            elif len(keyframe_indices) > max_frame:
+                keyframe_indices = constrained_sampling(keyframe_indices, max_frame)
+
+            # Extract keyframes
+            keyframes = [frames[idx] for idx in keyframe_indices]
+            print(len(keyframes), "keyframes extracted.")
+            return keyframes
 
     def frames_to_base64(self, frames: List[np.ndarray]) -> List[str]:
         """
@@ -112,17 +142,18 @@ class VideoProcessor:
             base64_frames.append(base64.b64encode(buffer).decode("utf-8"))
         return base64_frames
 
-    def analyze_video(self, video_path: str, question: str = None) -> str:
+    def analyze_video(self, video_path: str, question: str = None, use_keyframes: bool = True) -> str:
         """
         Args:
             video_path: Path to video file
             question: User question, used to guide the visual model to focus on relevant content
+            use_keyframes: Whether to use keyframe extraction
 
         Returns:
             Text description of video content
         """
         # Extract video frames
-        frames = self.extract_frames(video_path)
+        frames = self.extract_frames(video_path, use_keyframes)
         base64_frames = self.frames_to_base64(frames)
 
         # Build result string
@@ -300,18 +331,21 @@ class VideoChatSystem:
     """Video chat system, integrating video processing and reasoning functionality"""
 
     def __init__(self, vision_model_path: str = "Qwen/Qwen2.5-Vl-72B-Instruct",
-                 reasoning_model_path: str = "Qwen/Qwen2.5-VL-3B-Instruct"):
+                 reasoning_model_path: str = "Qwen/Qwen2.5-VL-3B-Instruct",
+                 use_keyframes: bool = True):
         """Initialize video chat system
 
         Args:
             vision_model_path: Path to vision model
             reasoning_model_path: Path to reasoning model
+            use_keyframes: Whether to use keyframe extraction
         """
         # Initialize parameters
         # Video parsing module parameters
         self.vision_max_tokens = 6144  # Video parsing needs more tokens to describe video content
         self.vision_temperature = 0.1  # Video parsing needs more deterministic description
         self.vision_model_path = vision_model_path
+        self.use_keyframes = use_keyframes
 
         # Reasoning module parameters
         self.reasoning_max_tokens = 4096
@@ -339,7 +373,8 @@ class VideoChatSystem:
 
     def set_inference_params(self, max_tokens: int = 4096, temperature: float = 0.7,
                            vision_max_tokens: Optional[int] = None, vision_temperature: Optional[float] = None,
-                           vision_model_path: Optional[str] = None, reasoning_model_path: Optional[str] = None):
+                           vision_model_path: Optional[str] = None, reasoning_model_path: Optional[str] = None,
+                           use_keyframes: Optional[bool] = None):
         """
         Set inference parameters
 
@@ -350,6 +385,7 @@ class VideoChatSystem:
             vision_temperature: Video parsing module temperature, if None, do not modify
             vision_model_path: Path to vision model, if None, do not modify
             reasoning_model_path: Path to reasoning model, if None, do not modify
+            use_keyframes: Whether to use keyframe extraction, if None, do not modify
         """
         # Set reasoning module parameters
         self.reasoning_max_tokens = max_tokens
@@ -364,6 +400,8 @@ class VideoChatSystem:
         if vision_temperature is not None:
             self.vision_temperature = vision_temperature
             self.video_processor.vision_temperature = vision_temperature
+        if use_keyframes is not None:
+            self.use_keyframes = use_keyframes
 
         # If model paths are provided, reinitialize processors
         need_reinit_vision = False
@@ -412,7 +450,7 @@ class VideoChatSystem:
             print(f"Processing video: {video_path}")
 
             # Analyze video
-            video_description = self.video_processor.analyze_video(video_path, question)
+            video_description = self.video_processor.analyze_video(video_path, question, self.use_keyframes)
 
             # Store video description and path
             self.video_descriptions[session_id] = video_description
@@ -566,7 +604,7 @@ def save_uploaded_file(file_content: bytes) -> str:
 def main():
     """Main function, used to demonstrate system functionality, modified to only require video when session starts"""
     print("Initializing video chat system...")
-    system = VideoChatSystem()
+    system = VideoChatSystem(use_keyframes=True)  # 默认使用关键帧提取
     print("System initialization complete")
 
     session_id = "demo"

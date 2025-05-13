@@ -9,15 +9,17 @@ MAX_TOKENS=4096                # Max output tokens for reasoning module
 TEMPERATURE=0.7                # Temperature for reasoning module
 VISION_MAX_TOKENS=6144         # Max output tokens for vision module
 VISION_TEMPERATURE=0.1         # Temperature for vision module
+USE_KEYFRAMES=true             # Whether to use keyframe extraction
 
 # Run interactive mode
-python infer_our/video_chat_cli.py \
+python infer/video_chat_cli.py \
   --interactive \
   --vision_model_path "$VISION_MODEL" \
   --reasoning_model_path "$REASONING_MODEL" \
   --max_tokens $MAX_TOKENS \
   --temperature $TEMPERATURE \
   --vision_max_tokens $VISION_MAX_TOKENS \
-  --vision_temperature $VISION_TEMPERATURE
+  --vision_temperature $VISION_TEMPERATURE \
+  $([ "$USE_KEYFRAMES" = true ] && echo "--use_keyframes" || echo "--no_keyframes")
 
 echo "Interactive video chat session ended"

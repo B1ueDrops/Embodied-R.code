@@ -37,6 +37,10 @@ def parse_args():
                         help="Maximum number of tokens for vision module (default: 6144)")
     parser.add_argument("--vision_temperature", type=float, default=0.1,
                         help="Temperature for vision module (default: 0.1)")
+    parser.add_argument("--use_keyframes", action="store_true", default=True,
+                        help="Use keyframe extraction for video processing (default: True)")
+    parser.add_argument("--no_keyframes", action="store_false", dest="use_keyframes",
+                        help="Disable keyframe extraction for video processing")
 
     return parser.parse_args()
 
@@ -44,7 +48,8 @@ def interactive_mode(system: VideoChatSystem, video_path: Optional[str] = None,
                    max_tokens: int = 4096, temperature: float = 0.7,
                    vision_max_tokens: int = 6144, vision_temperature: float = 0.1,
                    vision_model_path: str = "Qwen/Qwen2.5-Vl-72B-Instruct",
-                   reasoning_model_path: str = "Qwen/Qwen2.5-VL-3B-Instruct"):
+                   reasoning_model_path: str = "Qwen/Qwen2.5-VL-3B-Instruct",
+                   use_keyframes: bool = True):
     """
     Interactive mode, modified to only require video at session start
 
@@ -57,6 +62,7 @@ def interactive_mode(system: VideoChatSystem, video_path: Optional[str] = None,
         vision_temperature: Temperature for vision module
         vision_model_path: Path to vision model
         reasoning_model_path: Path to reasoning model
+        use_keyframes: Whether to use keyframe extraction
     """
     # Set inference parameters
     system.set_inference_params(
@@ -65,7 +71,8 @@ def interactive_mode(system: VideoChatSystem, video_path: Optional[str] = None,
         vision_max_tokens=vision_max_tokens,
         vision_temperature=vision_temperature,
         vision_model_path=vision_model_path,
-        reasoning_model_path=reasoning_model_path
+        reasoning_model_path=reasoning_model_path,
+        use_keyframes=use_keyframes
     )
 
     # Use date and time as session ID for easy tracking
@@ -171,7 +178,8 @@ def main():
     print("Initializing video chat system...")
     system = VideoChatSystem(
         vision_model_path=args.vision_model_path,
-        reasoning_model_path=args.reasoning_model_path
+        reasoning_model_path=args.reasoning_model_path,
+        use_keyframes=args.use_keyframes
     )
     print("System initialization complete")
 
@@ -179,7 +187,8 @@ def main():
         # Interactive mode
         interactive_mode(system, args.video, args.max_tokens, args.temperature,
                          args.vision_max_tokens, args.vision_temperature,
-                         args.vision_model_path, args.reasoning_model_path)
+                         args.vision_model_path, args.reasoning_model_path,
+                         args.use_keyframes)
     elif args.video and args.question:
         # Single Q&A mode
         if not os.path.exists(args.video):
@@ -200,7 +209,8 @@ def main():
             vision_max_tokens=args.vision_max_tokens,
             vision_temperature=args.vision_temperature,
             vision_model_path=args.vision_model_path,
-            reasoning_model_path=args.reasoning_model_path
+            reasoning_model_path=args.reasoning_model_path,
+            use_keyframes=args.use_keyframes
         )
         result = system.process_video(args.video, session_id, args.question)
         print(result)

@@ -1,7 +1,8 @@
 # Embodied-R: Collaborative Framework for Activating Embodied Spatial Reasoning in Foundation Models via Reinforcement Learning
 
 <a href='https://arxiv.org/pdf/2504.12680'><img src='https://img.shields.io/badge/arXiv-2504.12680-b31b1b.svg'></a> &nbsp;
-<a href='https://embodiedcity.github.io/Embodied-R/'><img src='https://img.shields.io/badge/Project-Website-0078D4.svg'></a>
+<a href='https://embodiedcity.github.io/Embodied-R/'><img src='https://img.shields.io/badge/Project-Website-0078D4.svg'></a> &nbsp;
+<a href='https://huggingface.co/EmbodiedCity/Embodied-R'><img src='https://img.shields.io/badge/%20Hugging%20Face-Model weights-ffca28.svg'></a>
 
 <p align="center">
   <img src="assets/cover.gif" alt="Cover" width="65%" />
@@ -20,6 +21,7 @@ This project provides the official code for Embodied-R, a collaborative framewor
 
 [2025/04/26] We add support for 5-GPU training and local API service, eliminating the need for commercial API calls during training.
 
+[2025/05/13] We uploaded the model weights from two separate training sessions.  [Weight 1] incorporated consistency rewards at a later stage, while [Weight 2] introduced consistency rewards at an earlier stage.
 ## Installation
 
 The Embodied-R project is built on the ModelScope ms-swift open-source framework. Please follow these steps to install:
@@ -344,7 +346,7 @@ Embodied-R uses two main rewards to guide model learning:
      ```
 
      Please visit the [Bailian platform](https://www.aliyun.com/product/bailian) to apply for API keys
-     
+
 We recommend using different reward weight ratios at different stages of training. Overall, higher weight should be assigned to the format reward in the early stages. In later stages, greater emphasis should be placed on the accuracy reward, while gradually incorporating the logical consistency reward. The earlier the logical consistency reward is introduced, the better the model's logical coherence can be maintained, though this may lead to slower training progress. Please adjust accordingly.
 
 ## Citation
