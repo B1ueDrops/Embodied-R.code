@@ -111,8 +111,8 @@ class VideoProcessor:
 
             # Obtain the idx of keyframes
             keyframe_indices = extract_keyframes(frames, 0.5)
-            print("关键帧索引：", keyframe_indices)
-            print("关键帧数量：", len(keyframe_indices))
+            print("Keyframe indices:", keyframe_indices)
+            print("Number of keyframes:", len(keyframe_indices))
 
             # Ensure the keyframe number is in [min_frame, max_frame]
             if len(keyframe_indices) < min_frame:
